@@ -3,6 +3,8 @@
 // license found at www.lloseng.com 
 
 
+import java.io.IOException;
+
 import ocsf.server.*;
 
 /**
@@ -23,6 +25,16 @@ public class EchoServer extends AbstractServer
    * The default port to listen on.
    */
   final public static int DEFAULT_PORT = 5555;
+  
+  /**
+   * The default host .
+   */
+  final public static String DEFAULT_HOST = "127.0.0.1";
+  
+  /**
+   * A string used to save login IDs
+   */
+  final private String key = "login ID";
   
   //Constructors ****************************************************
   
@@ -47,9 +59,39 @@ public class EchoServer extends AbstractServer
    */
   public void handleMessageFromClient
     (Object msg, ConnectionToClient client)
-  {
-    System.out.println("Message received: " + msg + " from " + client);
-    this.sendToAllClients(msg);
+  { 
+	String message = msg.toString();
+	if(message.startsWith("#login")) 
+	{
+		String loginid = message.substring(7);
+		if(client.getInfo(key) == null) 
+		{
+			client.setInfo(key, loginid);
+			System.out.println(loginid + " has logged on");
+			this.sendToAllClients(loginid + " has logged on");
+			System.out.println("Message received: " + msg + " from null");
+		}
+		else 
+		{
+			try 
+			{
+				System.out.println("ERROR - Second login. Connection terminated");
+				client.close();
+			} 
+			catch (IOException e) 
+			{
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	else 
+	{
+		String loginid = client.getInfo(key).toString();
+		System.out.println("Message received: " + msg + " from " + loginid );
+	    this.sendToAllClients(loginid + "> " + message );
+	}
+	
   }
     
   /**
@@ -72,6 +114,49 @@ public class EchoServer extends AbstractServer
       ("Server has stopped listening for connections.");
   }
   
+  //Exercice 1-C: Methods derived from AbstractServer 
+  //              to acknowledge connections and disconnections
+  
+  /**
+   * Implementation of the hook method called each time a new client connection is
+   * accepted. The default implementation does nothing.
+   * @param client the connection connected to the client.
+   */
+  @Override
+  protected void clientConnected(ConnectionToClient client) {
+	  System.out.println
+	  	("A new client is connected to the server.");
+  }
+
+  /**
+   * Implementation of the hook method called each time a client disconnects.
+   * The default implementation does nothing. The method
+   * may be overridden by subclasses but should remains synchronized.
+   *
+   * @param client the connection with the client.
+   */
+  @Override
+  synchronized protected void clientDisconnected(ConnectionToClient client) {
+	  String loginid = client.getInfo(key).toString();
+	  System.out.println(loginid + " has disconnected.");
+  }
+
+  /**
+   * Implementation of the hook method called each time an exception is thrown in a
+   * ConnectionToClient thread.
+   * The method may be overridden by subclasses but should remains
+   * synchronized.
+   *
+   * @param client the client that raised the exception.
+   * @param Throwable the exception thrown.
+   */
+  @Override
+  synchronized protected void clientException(ConnectionToClient client, Throwable exception) {
+	  String loginid = client.getInfo(key).toString();
+	  System.out.println(loginid + " has created an exception and was disconnected.");
+  }
+	    
+  
   //Class methods ***************************************************
   
   /**
@@ -84,7 +169,7 @@ public class EchoServer extends AbstractServer
   public static void main(String[] args) 
   {
     int port = 0; //Port to listen on
-
+    
     try
     {
       port = Integer.parseInt(args[0]); //Get port from command line
@@ -99,6 +184,7 @@ public class EchoServer extends AbstractServer
     try 
     {
       sv.listen(); //Start listening for connections
+      //ServerConsole console = new ServerConsole(DEFAULT_HOST,port);
     } 
     catch (Exception ex) 
     {
